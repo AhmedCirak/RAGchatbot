@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document chat</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E9EEF2;
+    --surface: #F7F9FB;
+    --ink: #18232E;
+    --muted: #5B6B7A;
+    --line: #CBD5DE;
+    --accent: #0D5C6B;
+    --accent-ink: #FFFFFF;
+    --mark: #F3D54E;
+    --mark-ink: #3A2F00;
+    --user: #DCE6EE;
+    --danger: #A3302A;
+    --ui: "Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --read: "Literata", Georgia, "Times New Roman", serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11171E;
+      --surface: #18212B;
+      --ink: #DDE5EC;
+      --muted: #8C9BA8;
+      --line: #2A3643;
+      --accent: #5DB6C6;
+      --accent-ink: #0B1A1F;
+      --mark: #D9BC3C;
+      --mark-ink: #1E1800;
+      --user: #1F2C38;
+      --danger: #E0716A;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 var(--ui);
+    display: flex;
+    flex-direction: column;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .doc { flex: 1; min-width: 0; }
+  .doc-name {
+    font: 600 1.05rem/1.3 var(--read);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .status { font-size: .8rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .status.ok .dot { background: #2E9E6A; }
+  .status.err .dot { background: var(--danger); }
+  .status.err { color: var(--danger); }
+  #statusText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ghost {
+    background: none; border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: .875rem; color: var(--muted);
+  }
+  .ghost:hover { color: var(--ink); border-color: var(--muted); }
+
+  /* ---------- Conversation ---------- */
+  main { flex: 1; overflow-y: auto; }
+  #log { max-width: 760px; margin: 0 auto; padding: 32px 20px 24px; }
+
+  .empty { padding: 8vh 0 0; }
+  .empty h1 {
+    font: 600 clamp(1.8rem, 4vw, 2.6rem)/1.15 var(--read);
+    margin: 0 0 12px;
+    overflow-wrap: anywhere;
+  }
+  .empty p { color: var(--muted); max-width: 52ch; margin: 0 0 28px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; }
+  .examples button {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+    padding: 8px 14px; font-size: .9rem;
+  }
+  .examples button:hover { border-color: var(--accent); }
+
+  .msg { margin: 0 0 28px; }
+  .msg.user { display: flex; justify-content: flex-end; }
+  .msg.user .bubble {
+    background: var(--user); border-radius: 14px 14px 4px 14px;
+    padding: 10px 14px; max-width: 80%; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+
+  .answer { font: 1.03rem/1.7 var(--read); overflow-wrap: anywhere; }
+  .answer p { margin: 0 0 .8em; }
+  .answer p:last-child { margin-bottom: 0; }
+  .answer h4 { font: 600 1.05rem/1.4 var(--read); margin: 1.1em 0 .4em; }
+  .answer ul, .answer ol { margin: 0 0 .8em; padding-left: 1.4em; }
+  .answer li { margin: .2em 0; }
+  .answer code {
+    font: .88em/1 ui-monospace, Consolas, monospace;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px;
+  }
+  .table-wrap { overflow-x: auto; margin: 0 0 .8em; }
+  .answer table { border-collapse: collapse; font: .92rem/1.45 var(--ui); }
+  .answer th, .answer td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  .answer th { background: var(--surface); font-weight: 600; }
+  .answer.error { font-family: var(--ui); color: var(--danger); }
+  .stopped { color: var(--muted); font: .85rem var(--ui); margin-top: 6px; }
+
+  /* Inline citations look like a highlighter stroke on the page number */
+  .cite {
+    font: 600 .78em/1 var(--ui);
+    background: var(--mark); color: var(--mark-ink);
+    border: 0; border-radius: 3px; padding: 2px 5px; margin: 0 1px;
+    vertical-align: .08em;
+  }
+  .cite:hover { filter: brightness(.94); }
+
+  /* Typing indicator */
+  .typing { display: inline-flex; gap: 5px; padding: 8px 0; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+  /* ---------- Sources: page index tabs ---------- */
+  .sources { margin-top: 14px; }
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end;
+    border-bottom: 2px solid var(--line);
+    padding-left: 2px;
+  }
+  .tab {
+    background: var(--surface); border: 1px solid var(--line); border-bottom: 0;
+    border-radius: 3px 10px 0 0;
+    padding: 4px 12px 3px; font-size: .8rem; color: var(--muted);
+    position: relative; top: 2px;
+    transition: padding .15s ease;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] {
+    background: var(--mark); color: var(--mark-ink); border-color: var(--mark);
+    padding-top: 7px; font-weight: 600;
+  }
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-top: 0;
+    padding: 12px 14px; font: .92rem/1.6 var(--read); color: var(--ink);
+  }
+  .panel .meta { font: .78rem var(--ui); color: var(--muted); margin-bottom: 4px; }
+
+  /* ---------- Composer ---------- */
+  footer { border-top: 1px solid var(--line); background: var(--surface); }
+  form { max-width: 760px; margin: 0 auto; padding: 12px 20px 16px; display: flex; gap: 10px; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; max-height: 180px;
+    font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  #send {
+    background: var(--accent); color: var(--accent-ink);
+    border: 0; border-radius: 12px; padding: 10px 18px; font-weight: 600; min-width: 84px;
+  }
+  #send:disabled { opacity: .45; cursor: default; }
+  #send.stop { background: var(--ink); color: var(--surface); }
+  .hint { max-width: 760px; margin: -8px auto 0; padding: 0 20px 10px; font-size: .75rem; color: var(--muted); }
+
+  @media (max-width: 560px) {
+    header { padding: 10px 14px; }
+    #log { padding: 20px 14px; }
+    form { padding: 10px 14px 12px; }
+    .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .typing span { animation: none; opacity: .6; }
+    .tab { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="doc">
+      <div class="doc-name" id="docName">Loading document…</div>
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">Connecting to the server</span></div>
+    </div>
+    <button class="ghost" id="newChat" type="button">New chat</button>
+  </header>
+
+  <main id="scroller">
+    <div id="log" aria-live="polite"></div>
+  </main>
+
+  <footer>
+    <form id="form">
+      <textarea id="input" rows="1" maxlength="1000" placeholder="Ask a question about the document" aria-label="Your question"></textarea>
+      <button id="send" type="submit" disabled>Send</button>
+    </form>
+    <div class="hint">Enter to send, Shift+Enter for a new line</div>
+  </footer>
+
+<script>
+  // Change these to questions that fit your document.
+  const EXAMPLES = [
+    "What is this document about?",
+    "Summarize the main conclusions",
+    "What methods or approaches are described?",
+  ];
+  const HISTORY_SENT = 6; // last 3 question/answer pairs
+
+  const log = document.getElementById("log");
+  const scroller = document.getElementById("scroller");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+
+  let history = [];
+  let controller = null;   // AbortController of the running request
+  let docTitle = "this document";
+
+  // ---------- Helpers ----------
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function nearBottom() {
+    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120;
+  }
+  function scrollDown(force = false) {
+    if (force || nearBottom()) scroller.scrollTop = scroller.scrollHeight;
+  }
+
+  // ---------- Minimal Markdown (paragraphs, lists, headings, tables, bold, code, citations) ----------
+  function inline(text) {
+    let s = esc(text);
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+    // [p. 4]  [p. 4, 7]  [pp. 3-5]  [page 2]  ->  clickable page marks
+    s = s.replace(/[\[【]\s*(?:pp?\.|pages?)\s*([0-9][0-9,\s–-]*)[\]】]/gi, (_, pages) =>
+      pages.split(",").map((p) => p.trim()).filter(Boolean).map((p) => {
+        const first = parseInt(p, 10);
+        return `<button type="button" class="cite" data-page="${first}" aria-label="Show source page ${esc(p)}">p.&nbsp;${esc(p)}</button>`;
+      }).join("")
+    );
+    return s;
+  }
+
+  function renderMarkdown(src) {
+    const lines = src.replace(/\r/g, "").split("\n");
+    let html = "", para = [], list = null;
+    const flushPara = () => { if (para.length) { html += `<p>${inline(para.join(" "))}</p>`; para = []; } };
+    const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) { flushPara(); closeList(); continue; }
+
+      const heading = line.match(/^\s*#{1,6}\s+(.*)/);
+      if (heading) { flushPara(); closeList(); html += `<h4>${inline(heading[1])}</h4>`; continue; }
+
+      // Table: header row followed by |---|---| separator
+      if (line.trim().startsWith("|") && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || "")) {
+        flushPara(); closeList();
+        const cells = (row) => row.trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
+        let t = `<div class="table-wrap"><table><thead><tr>${cells(line).map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+        i += 2;
+        while (i < lines.length && lines[i].trim().startsWith("|")) {
+          t += `<tr>${cells(lines[i]).map((c) => `<td>${c}</td>`).join("")}</tr>`;
+          i++;
+        }
+        i--;
+        html += t + "</tbody></table></div>";
+        continue;
+      }
+
+      const ul = line.match(/^\s*[-*•]\s+(.*)/);
+      const ol = line.match(/^\s*\d+[.)]\s+(.*)/);
+      if (ul || ol) {
+        flushPara();
+        const type = ul ? "ul" : "ol";
+        if (list !== type) { closeList(); html += `<${type}>`; list = type; }
+        html += `<li>${inline((ul || ol)[1])}</li>`;
+        continue;
+      }
+
+      closeList();
+      para.push(line.trim());
+    }
+    flushPara(); closeList();
+    return html;
+  }
+
+  // ---------- Rendering messages ----------
+  function showEmptyState() {
+    log.innerHTML = `
+      <section class="empty">
+        <h1>${esc(docTitle)}</h1>
+        <p>Ask anything about this document. Answers come only from its text and point to the pages they are based on.</p>
+        <div class="examples">${EXAMPLES.map((q) => `<button type="button">${esc(q)}</button>`).join("")}</div>
+      </section>`;
+    log.querySelectorAll(".examples button").forEach((b) =>
+      b.addEventListener("click", () => ask(b.textContent))
+    );
+  }
+
+  function addUser(text) {
+    log.querySelector(".empty")?.remove();
+    const el = document.createElement("div");
+    el.className = "msg user";
+    el.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+    log.appendChild(el);
+  }
+
+  function addBot() {
+    const el = document.createElement("div");
+    el.className = "msg bot";
+    el.innerHTML = `<div class="answer"><div class="typing" aria-label="Writing an answer"><span></span><span></span><span></span></div></div>`;
+    log.appendChild(el);
+    return el;
+  }
+
+  function renderSources(msgEl, sources) {
+    if (!sources.length) return;
+    const box = document.createElement("div");
+    box.className = "sources";
+    box.innerHTML = `
+      <div class="tabs" role="tablist" aria-label="Source pages">
+        ${sources.map((s, i) => `<button type="button" class="tab" role="tab" aria-selected="false" data-i="${i}" data-page="${s.page}">p. ${s.page}</button>`).join("")}
+      </div>
+      <div class="panel" role="tabpanel" hidden></div>`;
+    const panel = box.querySelector(".panel");
+
+    box.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const open = tab.getAttribute("aria-selected") === "true";
+        box.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", "false"));
+        if (open) { panel.hidden = true; return; }
+        const s = sources[tab.dataset.i];
+        tab.setAttribute("aria-selected", "true");
+        panel.innerHTML = `<div class="meta">${esc(s.source)}, page ${s.page}, match ${Math.round(s.similarity * 100)}%</div>${esc(s.snippet)}`;
+        panel.hidden = false;
+      });
+    });
+    msgEl.appendChild(box);
+  }
+
+  // Clicking an inline [p. 4] opens the matching page tab under that answer
+  log.addEventListener("click", (e) => {
+    const cite = e.target.closest(".cite");
+    if (!cite) return;
+    const tab = cite.closest(".msg")?.querySelector(`.tab[data-page="${cite.dataset.page}"]`);
+    if (!tab) return;
+    if (tab.getAttribute("aria-selected") !== "true") tab.click();
+    tab.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+
+  // ---------- Talking to the API ----------
+  async function loadHealth() {
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+    try {
+      const res = await fetch("/health");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail?.detail || data.detail || "Server is not ready");
+      docTitle = (data.document || "Document").replace(/\.pdf$/i, "").replace(/[_-]+/g, " ");
+      document.getElementById("docName").textContent = docTitle;
+      document.title = `${docTitle} – chat`;
+      statusEl.className = "status ok";
+      statusText.textContent = `Answering with ${data.model}`;
+    } catch (err) {
+      document.getElementById("docName").textContent = "Document unavailable";
+      statusEl.className = "status err";
+      statusText.textContent = `Backend not ready: ${err.message}`;
+    }
+    if (!history.length) showEmptyState();
+  }
+
+  async function ask(question) {
+    question = question.trim();
+    if (!question || controller) return;
+
+    addUser(question);
+    const msgEl = addBot();
+    const answerEl = msgEl.querySelector(".answer");
+    scrollDown(true);
+
+    input.value = "";
+    autosize();
+    setBusy(true);
+
+    controller = new AbortController();
+    let answer = "";
+    let finished = false;
+
+    try {
+      const res = await fetch("/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, history: history.slice(-HISTORY_SENT) }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const detail = Array.isArray(data.detail) ? data.detail[0]?.msg : data.detail;
+        throw new Error(detail || `Request failed (${res.status})`);
+      }
+
+      // Read Server-Sent Events from the response body
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const raw = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          let event = "message", data = "";
+          for (const line of raw.split("\n")) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          const payload = data ? JSON.parse(data) : {};
+
+          if (event === "sources") renderSources(msgEl, payload.sources);
+          else if (event === "token") {
+            answer += payload.text;
+            answerEl.innerHTML = renderMarkdown(answer);
+            scrollDown();
+          } else if (event === "error") throw new Error(payload.detail);
+          else if (event === "done") finished = true;
+        }
+      }
+
+      if (finished && answer) {
+        history.push({ role: "user", content: question }, { role: "assistant", content: answer });
+      }
+    } catch (err) {
+      if (err.name === "AbortError") {
+        if (!answer) answerEl.innerHTML = "";
+        msgEl.insertAdjacentHTML("beforeend", `<div class="stopped">Stopped</div>`);
+      } else {
+        answerEl.classList.add("error");
+        answerEl.textContent = `The server couldn't answer: ${err.message}`;
+      }
+    } finally {
+      controller = null;
+      setBusy(false);
+      input.focus();
+    }
+  }
+
+  // ---------- Composer ----------
+  function setBusy(busy) {
+    sendBtn.textContent = busy ? "Stop" : "Send";
+    sendBtn.classList.toggle("stop", busy);
+    sendBtn.type = busy ? "button" : "submit";
+    sendBtn.disabled = !busy && !input.value.trim();
+  }
+
+  function autosize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 180) + "px";
+  }
+
+  input.addEventListener("input", () => {
+    autosize();
+    if (!controller) sendBtn.disabled = !input.value.trim();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      ask(input.value);
+    }
+  });
+  form.addEventListener("submit", (e) => { e.preventDefault(); ask(input.value); });
+  sendBtn.addEventListener("click", () => { if (controller) controller.abort(); });
+
+  document.getElementById("newChat").addEventListener("click", () => {
+    if (controller) controller.abort();
+    history = [];
+    showEmptyState();
+    input.focus();
+  });
+
+  loadHealth();
+  input.focus();
+</script>
+</body>
+</html>
