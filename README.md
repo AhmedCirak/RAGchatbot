@@ -2,11 +2,9 @@
 
 Ask questions about a PDF and get answers grounded in its text, with clickable page citations. Built as a full small application: an ingestion pipeline, a retrieval-augmented generation (RAG) core, a REST API with streaming, and a web chat interface.
 
-<!-- TODO: replace with a live demo link once deployed -->
-**Live demo:** _coming soon_
+**Live demo:** https://ragchatbot-07jy.onrender.com/ 
+_Hosted on a free tier, so the first load may take up to a minute while the server wakes up._
 
-<!-- TODO: record a 10–15 s GIF (ask a question → streaming answer → click a citation) and save it as docs/demo.gif -->
-<!-- ![Demo](docs/demo.gif) -->
 
 ## Features
 
@@ -51,6 +49,7 @@ flowchart LR
 | LLM | Groq API (`openai/gpt-oss-120b`) or Ollama, via the OpenAI-compatible client |
 | Backend | FastAPI, Pydantic, Uvicorn |
 | Frontend | Plain HTML, CSS and JavaScript (no build step) |
+| Deployment | Docker, Render |
 
 ## Project structure
 
@@ -65,6 +64,8 @@ rag-chatbot/
 ├── data/
 │   └── document.pdf   # the document to chat with
 ├── requirements.txt
+├── Dockerfile         # container image; builds the index at build time
+├── .dockerignore
 └── .env.example
 ```
 
@@ -130,6 +131,17 @@ You can also chat in the terminal with `python rag.py`.
 | `TOP_K` | `4` | Number of chunks retrieved per question |
 | `MIN_SIMILARITY` | `0.5` | Chunks below this cosine similarity are discarded |
 
+## Deployment
+
+The app runs as a Docker container on [Render](https://render.com). The image installs the dependencies, copies the code and the PDF, and runs `ingest.py` during the build, so the vector index is ready the moment the server starts. The Groq API key is set as an environment variable in Render and never stored in the repository. Every push to `main` triggers a new deploy.
+
+To run the container locally:
+
+```bash
+docker build -t rag-chatbot .
+docker run -p 7860:7860 -e GROQ_API_KEY=your_key_here rag-chatbot
+```
+
 ## API
 
 | Method | Endpoint | Description |
@@ -169,15 +181,7 @@ Example response:
 - **Streaming with sources first.** Sources are known as soon as retrieval finishes, so they are sent before the first token. The frontend reads the stream with `fetch` and `ReadableStream`, because the browser's `EventSource` only supports GET requests.
 - **Models load at startup.** The embedding model and index are loaded when the server starts, so the first user doesn't wait, and `/health` reports clearly if the index is missing.
 
-## Roadmap
-
-- [ ] Deploy a public demo (Docker, Hugging Face Spaces)
-- [ ] Retrieval evaluation (hit rate@k on a labelled question set)
-- [ ] Tests and CI with GitHub Actions
-- [ ] Query rewriting for better follow-up questions
-- [ ] Telegram bot as a second client of the same API
-- [ ] Document upload with background processing and multiple documents
 
 ## Author
 
-Ahmed Cirak, [@AhmedCirak](https://github.com/AhmedCirak)
+ [@AhmedCirak](https://github.com/AhmedCirak)
