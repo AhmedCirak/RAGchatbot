@@ -29,5 +29,8 @@ RUN python ingest.py
 # Spaces routes traffic to port 7860
 EXPOSE 7860
 
-# 0.0.0.0 makes the server reachable from outside the container
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+EXPOSE 7860
+
+# Hosting platforms like Render pass the port in $PORT; fall back to 7860 locally.
+# 0.0.0.0 makes the server reachable from outside the container.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-7860}"]
