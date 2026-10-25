@@ -11,12 +11,13 @@ from contextlib import asynccontextmanager
 from typing import Iterator, Literal
 
 import openai
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends,FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 import rag
+from ratelimit import rate_limit
 from config import BASE_DIR, LLM_MODEL, LLM_PROVIDER
 
 STATIC_DIR = BASE_DIR / "static"
@@ -142,7 +143,7 @@ def health():
         )
 
 
-@app.post("/chat", response_model=ChatResponse, tags=["chat"])
+@app.post("/chat", response_model=ChatResponse, tags=["chat"], dependencies=[Depends(rate_limit)])
 def chat(request: ChatRequest):
     """Returns the whole answer at once (used e.g. by the Telegram bot)."""
     log.info("Q: %s", request.question)
@@ -157,7 +158,7 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@app.post("/chat/stream", tags=["chat"])
+@app.post("/chat/stream", tags=["chat"], dependencies=[Depends(rate_limit)])
 def chat_stream(request: ChatRequest):
     """
     Streams the answer as Server-Sent Events:

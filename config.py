@@ -34,3 +34,6 @@ LLM_MODEL = os.getenv("LLM_MODEL") or (
 )
 TEMPERATURE = 0.2
 MAX_HISTORY_TURNS = 3   # previous Q&A pairs sent to the LLM for follow-up questions
+# ---------- Rate limiting (protects the LLM quota on the public demo) ----------
+RATE_LIMIT_PER_IP = int(os.getenv("RATE_LIMIT_PER_IP", "10"))          # questions per minute, per visitor
+RATE_LIMIT_GLOBAL = int(os.getenv("RATE_LIMIT_GLOBAL", "200"))         # questions per hour, all visitors together
